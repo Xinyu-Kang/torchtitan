@@ -65,7 +65,7 @@ Install TorchTitan:
 pip install -e .
 ```
 ## Run TorchTitan with TorchComms
-### Download Model
+### Download Models
 Llama-3.1-8B:
 ```
 python scripts/download_hf_assets.py --repo_id meta-llama/Llama-3.1-8B --assets tokenizer --hf_token="$HF_TOKEN"
@@ -80,7 +80,7 @@ python scripts/download_c4_test_dataset.py --save_dir ./assets/hf/c4_test
 ```
 ### Single-Node Training
 ```
-TEST_BACKEND=ncclx TRAIN_FILE=torchtitan.experiments.torchcomms.train CONFIG_FILE="./torchtitan/models/llama3/train_configs/llama3_8b.toml" ./run_train.sh
+TEST_BACKEND=rcclx TRAIN_FILE=torchtitan.experiments.torchcomms.train CONFIG_FILE="./torchtitan/models/llama3/train_configs/llama3_8b.toml" ./run_train.sh
 ```
 ### Multi-Node Training (SLURM)
 With TorchComms enabled:
