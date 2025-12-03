@@ -9,7 +9,7 @@ from typing import Any, Callable
 
 import torch
 
-from datasets import Dataset, load_dataset
+from datasets import Dataset, load_dataset, load_from_disk
 from datasets.distributed import split_dataset_by_node
 from torch.distributed.checkpoint.stateful import Stateful
 from torch.utils.data import IterableDataset
@@ -41,6 +41,11 @@ DATASETS = {
     "c4_test": DatasetConfig(
         path="tests/assets/c4_test",
         loader=lambda path: load_dataset(path, split="train"),
+        sample_processor=_process_c4_text,
+    ),
+    "c4_test_local": DatasetConfig(
+        path="./assets/hf/c4_test",
+        loader=lambda path: load_from_disk(path),
         sample_processor=_process_c4_text,
     ),
     "c4_validation": DatasetConfig(

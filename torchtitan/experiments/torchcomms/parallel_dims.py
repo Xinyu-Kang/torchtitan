@@ -16,6 +16,7 @@ from torchcomms.device_mesh import _flatten_with_comm, init_device_mesh
 
 from torchtitan.distributed.parallel_dims import ParallelDims
 from torchtitan.tools.logging import logger
+from torchtitan.tools import utils
 
 __all__ = ["TorchCommsParallelDims"]
 
@@ -70,7 +71,16 @@ def _create_device_mesh(
         Returns empty dict if initialization fails
     """
     backend = os.environ["TEST_BACKEND"]
-    device = torch.device("cuda")
+    device_type = utils.device_type
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    # TorchComms needs the concrete device index so that it registers backends for
+    # the same device type TorchTitan uses (e.g. cuda:rank rather than an
+    # unspecified HIP device). CPU doesn't take a rank suffix.
+    device = (
+        torch.device(device_type)
+        if device_type == "cpu"
+        else torch.device(f"{device_type}:{local_rank}")
+    )
     mesh = torch.arange(world_size, dtype=torch.int, device="cpu").view(mesh_shape)
     comm = torchcomms.new_comm(
         backend,

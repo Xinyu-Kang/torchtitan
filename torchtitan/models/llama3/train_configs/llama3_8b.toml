@@ -5,12 +5,12 @@ dump_folder = "./outputs"
 description = "Llama 3 8B training"
 
 [profiling]
-enable_profiling = true
+enable_profiling = false
 save_traces_folder = "profile_trace"
 profile_freq = 100
 
 [metrics]
-log_freq = 10
+log_freq = 1
 enable_tensorboard = true
 save_tb_folder = "tb"
 
@@ -26,14 +26,14 @@ lr = 3e-4
 eps = 1e-8
 
 [lr_scheduler]
-warmup_steps = 200  # lr scheduler warm up
+warmup_steps = 4  # lr scheduler warm up
 
 [training]
-local_batch_size = 1
+local_batch_size = 4
 seq_len = 8192
 max_norm = 1.0  # grad norm clipping
-steps = 1000
-dataset = "c4"
+steps = 20
+dataset = "c4_test_local"
 
 [parallelism]
 data_parallel_replicate_degree = 1

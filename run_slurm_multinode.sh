@@ -1,0 +1,84 @@
+#!/usr/bin/bash
+# Slurm launcher for multi-node TorchTitan. Uses conda (no Docker) and can toggle TorchComms.
+
+#SBATCH --job-name=torchtitan
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=1
+#SBATCH --gres=gpu:8
+#SBATCH --cpus-per-task=32
+#SBATCH --time=02:00:00
+#SBATCH --nodelist=chi-mi325x-pod2-[103-104]
+#SBATCH --output=logs/torchtitan-%j.out
+
+set -ex
+
+# User-tunable pieces
+CONDA_ENV=${CONDA_ENV:-"comms-titan"}
+NGPU=${NGPU:-"8"}
+CONFIG_FILE=${CONFIG_FILE:-"./torchtitan/models/llama3/train_configs/llama3_8b.toml"}
+
+# TorchComms toggle. Set USE_TORCHCOMMS=1 and optionally TEST_BACKEND (rccl/rcclx).
+USE_TORCHCOMMS=${USE_TORCHCOMMS:-"1"}
+TEST_BACKEND=${TEST_BACKEND:-"rcclx"}
+
+# NCCL/IB networking defaults
+NCCL_NET=${NCCL_NET:-"IB"}
+NCCL_SOCKET_IFNAME=${NCCL_SOCKET_IFNAME:-"enp49s0f0np0"}
+NCCL_IB_HCA=${NCCL_IB_HCA:-"bnxt_re0,bnxt_re1,bnxt_re2,bnxt_re3,bnxt_re4,bnxt_re5,bnxt_re7,bnxt_re8"}
+NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX:-"3"}
+NCCL_IB_DISABLE=${NCCL_IB_DISABLE:-"0"}
+
+GPU_MAX_HW_QUEUES=${GPU_MAX_HW_QUEUES:-"4"}
+TORCH_NCCL_HIGH_PRIORITY=${TORCH_NCCL_HIGH_PRIORITY:-"1"}
+NCCL_CHECKS_DISABLE=${NCCL_CHECKS_DISABLE:-"1"}
+NCCL_CROSS_NIC=${NCCL_CROSS_NIC:-"0"}
+CUDA_DEVICE_MAX_CONNECTIONS=${CUDA_DEVICE_MAX_CONNECTIONS:-"1"}
+NCCL_PROTO=${NCCL_PROTO:-"Simple"}
+RCCL_MSCCL_ENABLE=${RCCL_MSCCL_ENABLE:-"0"}
+TOKENIZERS_PARALLELISM=${TOKENIZERS_PARALLELISM:-"false"}
+HSA_NO_SCRATCH_RECLAIM=${HSA_NO_SCRATCH_RECLAIM:-"1"}
+NCCL_PXN_DISABLE=${NCCL_PXN_DISABLE:-"0"}
+NCCL_P2P_NET_CHUNKSIZE=${NCCL_P2P_NET_CHUNKSIZE:-"262144"}
+NCCL_DEBUG=${NCCL_DEBUG:-"WARN"}
+NCCL_DEBUG_SUBSYS=${NCCL_DEBUG_SUBSYS:-"ALL"}
+
+MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
+MASTER_PORT=${MASTER_PORT:-"29500"}
+
+echo "MASTER_ADDR=$MASTER_ADDR"
+echo "MASTER_PORT=$MASTER_PORT"
+echo "SLURM_NNODES=$SLURM_NNODES"
+
+srun --ntasks=${SLURM_NNODES} --ntasks-per-node=1 bash -c "
+    # Load conda without relying on interactive shell state
+    source \"\$HOME/miniforge3/etc/profile.d/conda.sh\" || source \"\$HOME/.bashrc\"
+    conda activate ${CONDA_ENV}
+    cd ${SLURM_SUBMIT_DIR}
+    MASTER_ADDR=${MASTER_ADDR} \
+    MASTER_PORT=${MASTER_PORT} \
+    NNODES=${SLURM_NNODES} \
+    NODE_RANK=\${SLURM_PROCID} \
+    NGPU=${NGPU} \
+    CONFIG_FILE=${CONFIG_FILE} \
+    USE_TORCHCOMMS=${USE_TORCHCOMMS} \
+    TEST_BACKEND=${TEST_BACKEND} \
+    NCCL_NET=${NCCL_NET} \
+    NCCL_SOCKET_IFNAME=${NCCL_SOCKET_IFNAME} \
+    NCCL_IB_HCA=${NCCL_IB_HCA} \
+    NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} \
+    NCCL_IB_DISABLE=${NCCL_IB_DISABLE} \
+    GPU_MAX_HW_QUEUES=${GPU_MAX_HW_QUEUES} \
+    TORCH_NCCL_HIGH_PRIORITY=${TORCH_NCCL_HIGH_PRIORITY} \
+    NCCL_CHECKS_DISABLE=${NCCL_CHECKS_DISABLE} \
+    NCCL_CROSS_NIC=${NCCL_CROSS_NIC} \
+    CUDA_DEVICE_MAX_CONNECTIONS=${CUDA_DEVICE_MAX_CONNECTIONS} \
+    NCCL_PROTO=${NCCL_PROTO} \
+    RCCL_MSCCL_ENABLE=${RCCL_MSCCL_ENABLE} \
+    TOKENIZERS_PARALLELISM=${TOKENIZERS_PARALLELISM} \
+    HSA_NO_SCRATCH_RECLAIM=${HSA_NO_SCRATCH_RECLAIM} \
+    NCCL_PXN_DISABLE=${NCCL_PXN_DISABLE} \
+    NCCL_P2P_NET_CHUNKSIZE=${NCCL_P2P_NET_CHUNKSIZE} \
+    NCCL_DEBUG=${NCCL_DEBUG} \
+    NCCL_DEBUG_SUBSYS=${NCCL_DEBUG_SUBSYS} \
+    ./run_multinode_train.sh
+"
